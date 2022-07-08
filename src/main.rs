@@ -25,7 +25,6 @@ use rand::Rng;
 
 struct App {
     ball: Rectangle,
-
     board: Rectangle,
     
     playground: Rect,
@@ -92,7 +91,7 @@ impl App {
             || ball_bounds[1] < board_bounds[1] && ball_bounds[1] > board_bounds[0]
         {
             if self.ball.y < 30.0{
-                self.ball.color = Color::Green;
+                self.ball.color = Color::Yellow;
             }
             
             if self.ball.y < self.board.y + self.board.height
@@ -117,6 +116,10 @@ impl App {
         }
 
         self.tick_count += 1;
+        if self.tick_count & 0x3FF == 0 { //bump the speed every 1024 game ticks
+            self.vx += 0.2;
+            self.vy += 0.1;
+        }
     }
 }
 
@@ -156,9 +159,11 @@ fn run_app<B: Backend>(
 ) -> io::Result<()> {
     let mut last_tick = Instant::now();
 
-    let mut rng = rand::thread_rng();
-    app.ball.x = rng.gen_range(10.0..90.0);
-    app.ball.y = rng.gen_range(10.0..100.0);
+    {
+        let mut rng = rand::thread_rng();
+        app.ball.x = rng.gen_range(10.0..90.0);
+        app.ball.y = rng.gen_range(10.0..100.0);
+    }
 
     loop {
         terminal.draw(|f| ui(f, &app))?;

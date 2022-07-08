@@ -20,6 +20,8 @@ use tui::{
     Frame, Terminal,
 };
 
+use rand::Rng;
+
 
 struct App {
     ball: Rectangle,
@@ -40,8 +42,8 @@ impl App {
     fn new() -> App {
         App {
             ball: Rectangle {
-                x: 10.0,
-                y: 30.0,
+                x: 0.0,
+                y: 0.0,
                 width: 5.0,
                 height: 5.0,
                 color: Color::Red,
@@ -53,7 +55,7 @@ impl App {
                 height: 3.0,
                 color: Color::White,
             },
-            playground: Rect::new(10, 10, 100, 100),
+            playground: Rect::new(10, 10, 150, 100),
             vx: 1.0,
             vy: 1.0,
             dir_x: true,
@@ -89,14 +91,18 @@ impl App {
         if ball_bounds[0] > board_bounds[0] && ball_bounds[0] < board_bounds[1]
             || ball_bounds[1] < board_bounds[1] && ball_bounds[1] > board_bounds[0]
         {
-            self.ball.color = Color::Yellow;
+            if self.ball.y < 30.0{
+                self.ball.color = Color::Green;
+            }
             
             if self.ball.y < self.board.y + self.board.height
             {
                 if !self.dir_y {self.score += 1;}
                 self.dir_y = true;
             }
-        } else { self.ball.color = Color::Red }
+        } else {
+            self.ball.color = Color::Red
+        }
 
         if self.dir_x {
             self.ball.x += self.vx;
@@ -114,7 +120,7 @@ impl App {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {    
+fn main() -> Result<(), Box<dyn Error>> {
     // setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -150,6 +156,10 @@ fn run_app<B: Backend>(
 ) -> io::Result<()> {
     let mut last_tick = Instant::now();
 
+    let mut rng = rand::thread_rng();
+    app.ball.x = rng.gen_range(10.0..90.0);
+    app.ball.y = rng.gen_range(10.0..100.0);
+
     loop {
         terminal.draw(|f| ui(f, &app))?;
 
@@ -163,10 +173,14 @@ fn run_app<B: Backend>(
                         return Ok(());
                     }
                     KeyCode::Right => {
-                        app.board.x += 5.0;
+                        if app.board.x + 10.0 < app.playground.right().into(){
+                            app.board.x += 5.0;
+                        }
                     }
                     KeyCode::Left => {
-                        app.board.x -= 5.0;
+                        if app.board.x > app.playground.left().into(){
+                            app.board.x -= 5.0;
+                        }
                     }
                     _ => {}
                 }
@@ -193,7 +207,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             ctx.draw(&app.board);
             
         })
-        .x_bounds([10.0, 110.0])
+        .x_bounds([10.0, 160.0])
         .y_bounds([10.0, 110.0]);
     f.render_widget(canvas, chunks[0]);
 
@@ -211,8 +225,8 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .block(Block::default().borders(Borders::ALL).title("You Win!"))
         .paint(|ctx| {
             ctx.print(
-                -180.0,
-                90.0,
+                0.0,
+                0.0,
                 Span::styled(r"You Win!", Style::default().bg(Color::LightYellow).fg(Color::Black)),
             );
         })

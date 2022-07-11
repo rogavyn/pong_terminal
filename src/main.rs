@@ -148,11 +148,13 @@ impl App {
             
             if self.ball.y < self.board.y + self.board.height
             {
-                if !self.dir_y {self.score += 1;}
-                self.dir_y = true;
-                if !self.win{
-                    play_wav(&self.pongsound);
+                if !self.dir_y {
+                    self.score += 1;
+                    if !self.win{
+                        play_wav(&self.pongsound, false);
+                    }
                 }
+                self.dir_y = true;
             }
         } else {
             self.ball.color = Color::Red
@@ -289,6 +291,7 @@ fn run_app<B: Backend>(
         if app.score >= 10 {
             if app.win == false{
                 app.win_time = (app.tick_count as f64 * 40.0) / 1000.0;
+                play_wav(&Audio::new(1), true);
             }
             app.win = true;
         }
@@ -371,9 +374,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     }
 }
 
-fn play_wav(file: &Audio){
+fn play_wav(file: &Audio, wait: bool){
     file.sl.play(&file.wav);
-    /*while file.sl.voice_count() > 0 {
-        std::thread::sleep(std::time::Duration::from_millis(1));
-    }*/
+    if wait{
+        while file.sl.voice_count() > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            
+        }
+    }
 }

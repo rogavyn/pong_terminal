@@ -79,7 +79,7 @@ impl App {
         let mut signal = RandomSignal::new(0,100);
         let streamdata = signal.by_ref().take(200).collect::<Vec<u64>>();
 
-        let pongsound= Audio::new();
+        let pongsound= Audio::new(0);
         App {
             ball: Rectangle {
                 x: 0.0,
@@ -150,7 +150,9 @@ impl App {
             {
                 if !self.dir_y {self.score += 1;}
                 self.dir_y = true;
-                play_wav(&self.pongsound);
+                if !self.win{
+                    play_wav(&self.pongsound);
+                }
             }
         } else {
             self.ball.color = Color::Red
@@ -195,12 +197,16 @@ struct Audio {
 }
 
 impl Audio {
-    fn new() -> Audio {
+    fn new(select: u32) -> Audio {
         let sl = Soloud::default().unwrap();
         let mut wav = audio::Wav::default();
-        wav.load_mem(include_bytes!("../pong.wav")).unwrap();
+        match select {
+            0 => wav.load_mem(include_bytes!("pong.wav")).unwrap(),
+            1 => wav.load_mem(include_bytes!("victory.wav")).unwrap(),
+            _ => panic!("Unable to access file")
+        }
         Audio {
-            sl,
+            sl, 
             wav,
         }
     }
@@ -367,7 +373,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
 
 fn play_wav(file: &Audio){
     file.sl.play(&file.wav);
-    while file.sl.voice_count() > 0 {
-        std::thread::sleep(std::time::Duration::from_millis(5));
-    }
+    /*while file.sl.voice_count() > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }*/
 }

@@ -95,7 +95,7 @@ impl App {
             dir_x: true,
             dir_y: true,
 
-            score: 9,
+            score: 0,
             tick_count: 0,
 
             bump: 0,

@@ -14,14 +14,37 @@ use tui::{
     style::{Color, Style},
     widgets::{
         canvas::{Canvas, Rectangle},
-        Block, Borders, Gauge,
+        Block, Borders, Gauge, Sparkline,
     },
-    text::Span,
     Frame, Terminal,
 };
 
-use rand::Rng;
+use rand::{
+    distributions::{Distribution, Uniform},
+    rngs::ThreadRng, Rng,
+};
 
+#[derive(Clone)]
+pub struct RandomSignal {
+    distribution: Uniform<u64>,
+    rng: ThreadRng,
+}
+
+impl RandomSignal {
+    pub fn new(lower: u64, upper: u64) -> RandomSignal {
+        RandomSignal {
+            distribution: Uniform::new(lower, upper),
+            rng: rand::thread_rng(),
+        }
+    }
+}
+
+impl Iterator for RandomSignal {
+    type Item = u64;
+    fn next(&mut self) -> Option<u64> {
+        Some(self.distribution.sample(&mut self.rng))
+    }
+}
 
 struct App {
     ball: Rectangle,
@@ -35,10 +58,18 @@ struct App {
 
     score: u16,
     tick_count: u64,
+
+    bump: u16,
+    bump_tick: u64,
+
+    signal: RandomSignal,
+    streamdata: Vec<u64>,
 }
 
 impl App {
     fn new() -> App {
+        let mut signal = RandomSignal::new(0,100);
+        let streamdata = signal.by_ref().take(200).collect::<Vec<u64>>();
         App {
             ball: Rectangle {
                 x: 0.0,
@@ -62,6 +93,12 @@ impl App {
 
             score: 0,
             tick_count: 0,
+
+            bump: 0,
+            bump_tick: 0,
+
+            signal,
+            streamdata,
         }
     }
 
@@ -115,10 +152,23 @@ impl App {
             self.ball.y -= self.vy
         }
 
+        self.bump = ((self.bump_tick as f64 / 512.0) * 100.0) as u16;
+
         self.tick_count += 1;
-        if self.tick_count & 0x3FF == 0 { //bump the speed every 1024 game ticks
+        self.bump_tick += 1;
+
+        if self.tick_count & 0x1FF == 0 { //bump the speed every 512 game ticks
             self.vx += 0.2;
             self.vy += 0.1;
+            self.bump_tick = 0;
+        }
+
+        if self.score >= 10 {
+            if self.tick_count & 0xF == 0xF{
+                let value = self.signal.next().unwrap();
+            self.streamdata.pop();
+            self.streamdata.insert(0, value);
+            }   
         }
     }
 }
@@ -205,6 +255,11 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .constraints([Constraint::Percentage(75), Constraint::Percentage(25)].as_ref())
         .split(f.size());
 
+    let bottom_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+        .split(chunks[1]);
+
     let canvas = Canvas::default()
         .block(Block::default().borders(Borders::ALL).title("Pong"))
         .paint(|ctx| {
@@ -219,25 +274,41 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     if app.score < 10 {
         let label = format!("{}/10", app.score);
         let gauge = Gauge::default()
-        .block(Block::default().title("Score").borders(Borders::ALL))
-        .gauge_style(Style::default().fg(Color::White).bg(Color::Red))
-        .percent(app.score * 10)
-        .label(label);
-
-        f.render_widget(gauge, chunks[1]);
+            .block(Block::default().title("Score").borders(Borders::ALL))
+            .gauge_style(Style::default().fg(Color::White).bg(Color::Red))
+            .percent(app.score * 10)
+            .label(label);
+        f.render_widget(gauge, bottom_chunks[0]);
     }else{
-        let canvas = Canvas::default()
-        .block(Block::default().borders(Borders::ALL).title("You Win!"))
-        .paint(|ctx| {
-            ctx.print(
-                0.0,
-                0.0,
-                Span::styled(r"You Win!", Style::default().bg(Color::LightYellow).fg(Color::Black)),
-            );
-        })
-        .x_bounds([-180.0, 180.0])
-        .y_bounds([-90.0, 90.0]);
-        f.render_widget(canvas, chunks[1]);
-
+        if app.tick_count & 0x20 == 0x20{
+            let sparkline = Sparkline::default()
+                .block(
+                    Block::default()
+                    .title("You Win!")
+                    .borders(Borders::ALL)
+                )
+                .data(&app.streamdata)
+                .style(Style::default().fg(Color::LightYellow));
+            f.render_widget(sparkline, bottom_chunks[0]);
+        } else {
+            let sparkline = Sparkline::default()
+                .block(
+                    Block::default()
+                    .title("You Win!")
+                    .borders(Borders::ALL)
+                )
+                .data(&app.streamdata)
+                .style(Style::default().fg(Color::Yellow));
+            f.render_widget(sparkline, bottom_chunks[0]);
+        }    
     }
+
+    let label = format!("{}%", app.bump);
+    let gauge = Gauge::default()
+        .block(Block::default().title(format!("Level {}", ((app.vx - 0.8) / 0.2 + 1.0) as u8)).borders(Borders::LEFT | Borders::RIGHT))
+        .gauge_style(Style::default().fg(Color::Cyan))
+        .percent(app.bump)
+        .label(label);
+    f.render_widget(gauge, bottom_chunks[1]);
+
 }

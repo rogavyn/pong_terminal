@@ -25,6 +25,8 @@ use rand::{
     rngs::ThreadRng, Rng,
 };
 
+use soloud::*;
+
 #[derive(Clone)]
 pub struct RandomSignal {
     distribution: Uniform<u64>,
@@ -68,12 +70,16 @@ struct App {
 
     win: bool,
     win_time: f64,
+
+    pongsound: Audio,
 }
 
 impl App {
     fn new() -> App {
         let mut signal = RandomSignal::new(0,100);
         let streamdata = signal.by_ref().take(200).collect::<Vec<u64>>();
+
+        let pongsound= Audio::new();
         App {
             ball: Rectangle {
                 x: 0.0,
@@ -106,6 +112,8 @@ impl App {
 
             win: false,
             win_time: 0.0,
+
+            pongsound,
         }
     }
 
@@ -142,6 +150,7 @@ impl App {
             {
                 if !self.dir_y {self.score += 1;}
                 self.dir_y = true;
+                play_wav(&self.pongsound);
             }
         } else {
             self.ball.color = Color::Red
@@ -176,6 +185,23 @@ impl App {
             self.streamdata.pop();
             self.streamdata.insert(0, value);
             }   
+        }
+    }
+}
+
+struct Audio {
+    sl: Soloud,
+    wav: Wav,
+}
+
+impl Audio {
+    fn new() -> Audio {
+        let sl = Soloud::default().unwrap();
+        let mut wav = audio::Wav::default();
+        wav.load_mem(include_bytes!("../pong.wav")).unwrap();
+        Audio {
+            sl,
+            wav,
         }
     }
 }
@@ -336,5 +362,12 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             .x_bounds([0.0, 50.0])
             .y_bounds([0.0, 50.0]);
         f.render_widget(canvas, bottom_chunks[1]);
+    }
+}
+
+fn play_wav(file: &Audio){
+    file.sl.play(&file.wav);
+    while file.sl.voice_count() > 0 {
+        std::thread::sleep(std::time::Duration::from_millis(5));
     }
 }

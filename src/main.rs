@@ -12,6 +12,7 @@ use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
+    text::Span,
     widgets::{
         canvas::{Canvas, Rectangle},
         Block, Borders, Gauge, Sparkline,
@@ -64,6 +65,9 @@ struct App {
 
     signal: RandomSignal,
     streamdata: Vec<u64>,
+
+    win: bool,
+    win_time: f64,
 }
 
 impl App {
@@ -91,7 +95,7 @@ impl App {
             dir_x: true,
             dir_y: true,
 
-            score: 0,
+            score: 9,
             tick_count: 0,
 
             bump: 0,
@@ -99,6 +103,9 @@ impl App {
 
             signal,
             streamdata,
+
+            win: false,
+            win_time: 0.0,
         }
     }
 
@@ -163,7 +170,7 @@ impl App {
             self.bump_tick = 0;
         }
 
-        if self.score >= 10 {
+        if self.win {
             if self.tick_count & 0xF == 0xF{
                 let value = self.signal.next().unwrap();
             self.streamdata.pop();
@@ -246,6 +253,13 @@ fn run_app<B: Backend>(
             app.on_tick();
             last_tick = Instant::now();
         }
+
+        if app.score >= 10 {
+            if app.win == false{
+                app.win_time = (app.tick_count as f64 * 40.0) / 1000.0;
+            }
+            app.win = true;
+        }
     }
 }
 
@@ -271,7 +285,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .y_bounds([10.0, 110.0]);
     f.render_widget(canvas, chunks[0]);
 
-    if app.score < 10 {
+    if !app.win {
         let label = format!("{}/10", app.score);
         let gauge = Gauge::default()
             .block(Block::default().title("Score").borders(Borders::ALL))
@@ -279,6 +293,15 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             .percent(app.score * 10)
             .label(label);
         f.render_widget(gauge, bottom_chunks[0]);
+
+        let label = format!("{}%", app.bump);
+        let gauge = Gauge::default()
+            .block(Block::default().title(format!("Level {}", ((app.vx - 0.8) / 0.2 + 1.0) as u8)).borders(Borders::LEFT | Borders::RIGHT))
+            .gauge_style(Style::default().fg(Color::Cyan))
+            .percent(app.bump)
+            .label(label);
+        f.render_widget(gauge, bottom_chunks[1]);
+
     }else{
         if app.tick_count & 0x20 == 0x20{
             let sparkline = Sparkline::default()
@@ -300,15 +323,18 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
                 .data(&app.streamdata)
                 .style(Style::default().fg(Color::Yellow));
             f.render_widget(sparkline, bottom_chunks[0]);
-        }    
+        }
+
+        let canvas = Canvas::default()
+            .block(Block::default().borders(Borders::LEFT | Borders::RIGHT).title("Timer"))
+            .paint(|ctx| {
+                ctx.print(
+                    5.0, 25.0,
+                    Span::styled(format!("{}", app.win_time), Style::default().fg(Color::Yellow)),
+                );
+            })
+            .x_bounds([0.0, 50.0])
+            .y_bounds([0.0, 50.0]);
+        f.render_widget(canvas, bottom_chunks[1]);
     }
-
-    let label = format!("{}%", app.bump);
-    let gauge = Gauge::default()
-        .block(Block::default().title(format!("Level {}", ((app.vx - 0.8) / 0.2 + 1.0) as u8)).borders(Borders::LEFT | Borders::RIGHT))
-        .gauge_style(Style::default().fg(Color::Cyan))
-        .percent(app.bump)
-        .label(label);
-    f.render_widget(gauge, bottom_chunks[1]);
-
 }

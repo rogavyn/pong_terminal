@@ -102,7 +102,7 @@ impl App {
             dir_x: true,
             dir_y: true,
 
-            score: 8,
+            score: 0,
             tick_count: 0,
 
             bump: 0,
@@ -292,6 +292,7 @@ fn run_app<B: Backend>(
             if app.win == false{
                 app.win_time = (app.tick_count as f64 * 40.0) / 1000.0;
                 play_sound(&app.victorymusic);
+                app.victorymusic.sink.sleep_until_end();
             }
             app.win = true;
         }
@@ -377,6 +378,4 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
 fn play_sound(player: &Sound) {
     let file = std::fs::File::open(&player.filename).unwrap();
     player.sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
-
-    //player.sink.sleep_until_end();
 }

@@ -6,6 +6,7 @@ use crossterm::{
 use std::{
     error::Error,
     io,
+    io::BufReader,
     time::{Duration, Instant},
 };
 use tui::{
@@ -24,8 +25,6 @@ use rand::{
     distributions::{Distribution, Uniform},
     rngs::ThreadRng, Rng,
 };
-
-use soloud::*;
 
 #[derive(Clone)]
 pub struct RandomSignal {
@@ -71,7 +70,8 @@ struct App {
     win: bool,
     win_time: f64,
 
-    pongsound: Audio,
+    pongsound: Sound,
+    victorymusic: Sound,
 }
 
 impl App {
@@ -79,7 +79,8 @@ impl App {
         let mut signal = RandomSignal::new(0,100);
         let streamdata = signal.by_ref().take(200).collect::<Vec<u64>>();
 
-        let pongsound= Audio::new(0);
+        let pongsound = Sound::new(String::from("assets/pong.wav"));
+        let victorymusic = Sound::new(String::from("assets/victory.wav"));
         App {
             ball: Rectangle {
                 x: 0.0,
@@ -101,7 +102,7 @@ impl App {
             dir_x: true,
             dir_y: true,
 
-            score: 0,
+            score: 8,
             tick_count: 0,
 
             bump: 0,
@@ -114,6 +115,7 @@ impl App {
             win_time: 0.0,
 
             pongsound,
+            victorymusic,
         }
     }
 
@@ -151,7 +153,7 @@ impl App {
                 if !self.dir_y {
                     self.score += 1;
                     if !self.win{
-                        play_wav(&self.pongsound, false);
+                        play_sound(&self.pongsound);
                     }
                 }
                 self.dir_y = true;
@@ -193,23 +195,21 @@ impl App {
     }
 }
 
-struct Audio {
-    sl: Soloud,
-    wav: Wav,
+struct Sound {
+    _stream: rodio::OutputStream,
+    sink: rodio::Sink,
+    filename: String,
 }
 
-impl Audio {
-    fn new(select: u32) -> Audio {
-        let sl = Soloud::default().unwrap();
-        let mut wav = audio::Wav::default();
-        match select {
-            0 => wav.load_mem(include_bytes!("pong.wav")).unwrap(),
-            1 => wav.load_mem(include_bytes!("victory.wav")).unwrap(),
-            _ => panic!("Unable to access file")
-        }
-        Audio {
-            sl, 
-            wav,
+impl Sound {
+    fn new(filename: String) -> Sound {
+        let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+        let sink = rodio::Sink::try_new(&handle).unwrap();
+
+        Sound {
+            _stream,
+            sink,
+            filename: filename,
         }
     }
 }
@@ -291,7 +291,7 @@ fn run_app<B: Backend>(
         if app.score >= 10 {
             if app.win == false{
                 app.win_time = (app.tick_count as f64 * 40.0) / 1000.0;
-                play_wav(&Audio::new(1), true);
+                play_sound(&app.victorymusic);
             }
             app.win = true;
         }
@@ -374,12 +374,9 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     }
 }
 
-fn play_wav(file: &Audio, wait: bool){
-    file.sl.play(&file.wav);
-    if wait{
-        while file.sl.voice_count() > 0 {
-            std::thread::sleep(std::time::Duration::from_millis(1));
-            
-        }
-    }
+fn play_sound(player: &Sound) {
+    let file = std::fs::File::open(&player.filename).unwrap();
+    player.sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+
+    //player.sink.sleep_until_end();
 }

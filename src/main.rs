@@ -55,6 +55,7 @@ struct App {
     playground: Rect,
     vx: f64,
     vy: f64,
+    rx: f64, //slight randomization of speed on x axis
     dir_x: bool,
     dir_y: bool,
 
@@ -99,6 +100,7 @@ impl App {
             playground: Rect::new(10, 10, 150, 100),
             vx: 1.0,
             vy: 1.0,
+            rx: 0.0,
             dir_x: true,
             dir_y: true,
 
@@ -139,6 +141,7 @@ impl App {
             || self.ball.y + self.ball.height > self.playground.bottom() as f64
         {
             self.dir_y = !self.dir_y;
+            self.rx = x_randomize(&mut self.signal);
         }
 
         if ball_bounds[0] > board_bounds[0] && ball_bounds[0] < board_bounds[1]
@@ -152,6 +155,8 @@ impl App {
             {
                 if !self.dir_y {
                     self.score += 1;
+                    self.rx = x_randomize(&mut self.signal);
+
                     if !self.win{
                         play_sound(&self.pongsound);
                     }
@@ -163,15 +168,15 @@ impl App {
         }
 
         if self.dir_x {
-            self.ball.x += self.vx;
+            self.ball.x += self.vx + self.rx;
         } else {
-            self.ball.x -= self.vx;
+            self.ball.x -= self.vx + self.rx;
         }
 
         if self.dir_y {
             self.ball.y += self.vy;
         } else {
-            self.ball.y -= self.vy
+            self.ball.y -= self.vy;
         }
 
         self.bump = ((self.bump_tick as f64 / 512.0) * 100.0) as u16;
@@ -188,8 +193,8 @@ impl App {
         if self.win {
             if self.tick_count & 0xF == 0xF{
                 let value = self.signal.next().unwrap();
-            self.streamdata.pop();
-            self.streamdata.insert(0, value);
+                self.streamdata.pop();
+                self.streamdata.insert(0, value);
             }   
         }
     }
@@ -372,6 +377,17 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
             .x_bounds([0.0, 50.0])
             .y_bounds([0.0, 50.0]);
         f.render_widget(canvas, bottom_chunks[1]);
+    }
+}
+
+fn x_randomize(signal: &mut RandomSignal) -> f64{
+    let value = signal.next().unwrap();
+    if value > 66 {
+        0.1
+    } else if value > 33 {
+        -0.1
+    } else {
+        0.0
     }
 }
 

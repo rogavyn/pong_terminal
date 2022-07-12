@@ -381,13 +381,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
 }
 
 fn x_randomize(signal: &mut RandomSignal) -> f64{
-    let value = signal.next().unwrap();
-    if value > 66 {
-        0.1
-    } else if value > 33 {
-        -0.1
-    } else {
-        0.0
+    match signal.next().unwrap(){  
+        66.. => 0.1,
+        33.. => -0.1,
+        _ => 0.0
     }
 }
 

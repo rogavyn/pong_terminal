@@ -308,6 +308,9 @@ fn run_app<B: Backend>(
                     KeyCode::Char('q') => {
                         return Ok(());
                     }
+                    KeyCode::Char('r') => {
+                        reset(&mut app);
+                    }
                     KeyCode::Right => {
                         if app.board.x + 10.0 < app.playground.right().into(){
                             app.board.x += 5.0;
@@ -427,4 +430,16 @@ fn x_randomize(signal: &mut RandomSignal) -> f64{
 fn play_sound(player: &Sound) {
     let file = std::fs::File::open(&player.filename).unwrap();
     player.sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+}
+
+fn reset(mut game: &mut App) {
+    game.vx = 1.0;
+    game.vy = 1.0;
+    game.rx = 0.0;
+    game.score = 0;
+    game.tick_count = 0;
+    game.bump = 0;
+    game.bump_tick = 0;
+    game.win = false;
+    game.win_time = 0.0;
 }

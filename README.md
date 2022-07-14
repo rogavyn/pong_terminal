@@ -1,7 +1,7 @@
 # pong_terminal
 
 <p>
-A simple terminal pong game written as a means of practicing Rust. More polish to come
+A simple terminal pong game written as a means of practicing Rust.
 </p>
 
 

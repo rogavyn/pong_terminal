@@ -51,6 +51,7 @@ impl Iterator for RandomSignal {
 struct App {
     ball: Rectangle,
     board: Rectangle,
+    cpu: Rectangle,
     
     playground: Rect,
     vx: f64,
@@ -97,6 +98,13 @@ impl App {
                 height: 3.0,
                 color: Color::White,
             },
+            cpu: Rectangle{
+                x: 10.0,
+                y: 105.0,
+                width: 10.0,
+                height: 3.0,
+                color: Color::White,
+            },
             playground: Rect::new(10, 10, 150, 100),
             vx: 1.0,
             vy: 1.0,
@@ -131,17 +139,47 @@ impl App {
             self.board.x - self.board.width / 2.0,
             self.board.x + self.board.width / 2.0, 
         ];
+        let cpu_bounds = vec![
+            self.cpu.x - self.cpu.width / 2.0,
+            self.cpu.x + self.cpu.width / 2.0,
+        ];
 
         if self.ball.x < self.playground.left() as f64
             || self.ball.x + self.ball.width > self.playground.right() as f64
         {
             self.dir_x = !self.dir_x;
         }
-        if self.ball.y < self.playground.top() as f64
-            || self.ball.y + self.ball.height > self.playground.bottom() as f64
-        {
+
+        if self.ball.y < self.playground.top() as f64{ 
             self.dir_y = !self.dir_y;
             self.rx = x_randomize(&mut self.signal);
+            if self.score > 0 { self.score -= 1; }
+        }
+        if self.ball.y + self.ball.height > self.playground.bottom() as f64 {
+            self.dir_y = !self.dir_y;
+            self.rx = x_randomize(&mut self.signal);
+            self.score += 1;
+        }
+
+        if self.dir_y && self.ball.y > 50.0{ //extremely simple cpu opponent
+            if rand::thread_rng().gen_range(0..9) > 4 {
+                if self.dir_x && cpu_bounds[0] < ball_bounds[1] && self.cpu.x + 10.0 < self.playground.right().into() {
+                    self.cpu.x += 4.0 + self.rx;
+                } else if !self.dir_x && cpu_bounds[1] > ball_bounds[0] && self.cpu.x > self.playground.left().into() {
+                    self.cpu.x -= 4.0 + self.rx;
+                }
+            }
+        }
+
+        if self.ball.y > self.cpu.y - self.cpu.height {
+            if ball_bounds[0] > cpu_bounds[0] && ball_bounds[0] < cpu_bounds[1]
+                || ball_bounds[1] < cpu_bounds[1] && ball_bounds[1] > cpu_bounds[0]
+            {
+                if self.dir_y && !self.win {
+                    play_sound(&self.pongsound);
+                }
+                self.dir_y = false;
+            }
         }
 
         if ball_bounds[0] > board_bounds[0] && ball_bounds[0] < board_bounds[1]
@@ -154,9 +192,6 @@ impl App {
             if self.ball.y < self.board.y + self.board.height
             {
                 if !self.dir_y {
-                    self.score += 1;
-                    self.rx = x_randomize(&mut self.signal);
-
                     if !self.win{
                         play_sound(&self.pongsound);
                     }
@@ -179,12 +214,12 @@ impl App {
             self.ball.y -= self.vy;
         }
 
-        self.bump = ((self.bump_tick as f64 / 512.0) * 100.0) as u16;
+        self.bump = ((self.bump_tick as f64 / 1024.0) * 100.0) as u16;
 
         self.tick_count += 1;
         self.bump_tick += 1;
 
-        if self.tick_count & 0x1FF == 0 { //bump the speed every 512 game ticks
+        if self.tick_count & 0x3FF == 0 { //bump the speed every 1024 game ticks
             self.vx += 0.2;
             self.vy += 0.1;
             self.bump_tick = 0;
@@ -320,6 +355,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
         .paint(|ctx| {
             ctx.draw(&app.ball);
             ctx.draw(&app.board);
+            ctx.draw(&app.cpu);
             
         })
         .x_bounds([10.0, 160.0])
